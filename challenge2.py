@@ -1,81 +1,39 @@
-import socket
-import time
+from telnetlib import Telnet
+from time import sleep
 
-HOST = "it-sec-challenge.urz.uni-heidelberg.de"
-PORT = 10002
+host = "it-sec-challenge.urz.uni-heidelberg.de"
+port = 10002
+timeout = 100
 
-MAIL = "jb007@stud.uni-heidelberg.de"
+col1 = bytes.fromhex("a6af943ce36f0cf4adcb12bef7f0dc1f526dd914bd3da3cafde14467ab129e640b4c41819915cb43db752155ae4b895fc71b9b0d384d06ef3118bbc643ae6384")
+col2 = bytes.fromhex("a6af943ce36f0c74adcb122ef7f0dc1f526dd914bd3da3cafde14467ab129e640b4c41819915cb43db752155ae4b895fc71b9a0d384d06ef3118bbc643ae6384")
 
-# geklaut von Wikipedia: https://en.wikipedia.org/wiki/MD4#MD4_collision_example
-k1="839c7a4d7a92cb5678a5d5b9eea5a7573c8a74deb366c3dc20a083b69f5d2a3bb3719dc69891e9f95e809fd7e8b23ba6318edd45e51fe39708bf9427e9c3e8b9"
-k2="839c7a4d7a92cbd678a5d529eea5a7573c8a74deb366c3dc20a083b69f5d2a3bb3719dc69891e9f95e809fd7e8b23ba6318edc45e51fe39708bf9427e9c3e8b9"
-
-# convert hex to bytes to prevent encoding problems
-b1=bytes.fromhex(k1)
-b2=bytes.fromhex(k2)
-
-### ---- HELPER FUNCTIONS ---- ###
-
-def sRead(s: socket.socket):
-    print("[Server]")
-    msg = s.recv(4096).decode()
-    print(msg)
-    time.sleep(0.1)
-    print("")
-    return msg
-
-def sWrite(s: socket.socket, msg: str):
-    print("[Client]")
-    print(msg)
-    s.send((msg+"\n").encode())
-    print("")
-    time.sleep(0.1)
-
-def sWriteB(s: socket.socket, msg: str):
-    print("[Client]")
-    print(msg.hex())
-    s.send((msg + b"\n"))
-    print("")
-    time.sleep(0.1)
+# enter your mail here
+user = input("Enter your Mail: ")
+wait_time = 0.2
 
 
-### ---- ACTUAL CODE ---- ###
+# wait, send message, append linebreak
+def send(tn: Telnet, msg: bytes):
+    sleep(wait_time)
+    tn.write(msg + b"\n")
 
-# connect to server
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((HOST, PORT))
 
-# get initial prompt and wait for mail-request
-sRead(s)
-sRead(s)
+# run the main script
+def run():
+    with Telnet(host, port, timeout) as tn:
+        send(tn, user)
+        send(tn, b"2")
+        send(tn, b"changelog")
+        send(tn, col1)
+        send(tn, b"2")
+        send(tn, b"top_secret")
+        send(tn, col2)
+        send(tn, b"4")
+        send(tn, col1)
+        result = tn.read_until(b"------END CONTENT------", timeout=3).decode("utf-8").split("\n")[-2]
+        print(result)
 
-# send mail-address
-sWrite(s,MAIL)
 
-# create file with hash-collision
-sRead(s)
-sWrite(s, "3")
-sRead(s)
-sWriteB(s, b1)
-sRead(s)
-sWrite(s, "Oops I did it again!")
-
-# rename top_secret
-sRead(s)
-sWrite(s, "2")
-sRead(s)
-sWrite(s, "top_secret")
-sRead(s)
-sWriteB(s, b2)
-
-#try to read
-sRead(s)
-sWrite(s, "4")
-sRead(s)
-sWriteB(s, b1)
-msg = sRead(s)
-sWrite(s, "7")
-sRead(s)
-
-print("Die Flag ist:")
-print(msg.split("\n")[2])
+if __name__ == '__main__':
+    run()
